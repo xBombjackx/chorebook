@@ -10,7 +10,7 @@ export default async (request) => {
 
     const resultsStore = getStore({ name: "json-results" });
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
         You are an expert at parsing unstructured text and converting it into a structured JSON format for a lorebook.
@@ -55,7 +55,7 @@ export default async (request) => {
     const result = await model.generateContent(prompt);
     const response = result.response;
     let jsonText = response.text();
-
+    jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
     await resultsStore.set(jobId, jsonText);
 
   } catch (error) {
