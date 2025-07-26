@@ -4,16 +4,16 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 exports.handler = async function (event, context) {
-    if (event.httpMethod !== "POST") {
-        return { statusCode: 405, body: "Method Not Allowed" };
-    }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
 
-    try {
-        // Get the raw data from your index.html
-        const { lorebookName, combinedData } = JSON.parse(event.body);
+  try {
+    // Get the raw data from your index.html
+    const { lorebookName, combinedData } = JSON.parse(event.body);
 
-        // --- This is the detailed prompt from your HTML ---
-        const prompt = `
+    // --- This is the detailed prompt from your HTML ---
+    const prompt = `
         You are an expert at parsing unstructured text and converting it into a structured JSON format for a lorebook.
         Analyze the provided "Lore Data" and create a complete JSON object that strictly follows this schema:
 
@@ -53,18 +53,18 @@ exports.handler = async function (event, context) {
         ---
     `;
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        let jsonText = response.text();
-        jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ reply: jsonText }),
-        };
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    let jsonText = response.text();
+    jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ reply: jsonText }),
+    };
 
-    } catch (error) {
-        console.error("Error in Netlify function:", error);
-        return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-    }
+  } catch (error) {
+    console.error("Error in Netlify function:", error);
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+  }
 };
