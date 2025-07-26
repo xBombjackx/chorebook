@@ -10,14 +10,15 @@ export default async (request) => {
     const result = await store.get(jobId, { type: 'text' });
 
     if (result) {
+        // Result is ready, send 200 OK
         return new Response(result, {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         });
     } else {
-        // Use 404 to indicate the result isn't ready yet
+        // Result is not ready yet, send 202 Accepted
         return new Response(JSON.stringify({ status: 'pending' }), {
-            status: 404,
+            status: 202,
             headers: { 'Content-Type': 'application/json' },
         });
     }

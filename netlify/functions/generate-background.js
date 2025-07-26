@@ -51,7 +51,8 @@ export default async (request) => {
         4. For each entity you identify, create one entry object in the "entries" array.
         5. For each entry object:
             - "name": The proper name of the entity.
-            - "description": A concise but detailed summary of the entity based on the provided text. This has a 1600 character limit.
+            // MODIFIED INSTRUCTION FOR DESCRIPTION
+            - "description": A comprehensive and detailed summary of the entity. Extract all relevant information, context, and relationships from the source text to be as descriptive as possible, while strictly adhering to the 1600 character limit.
             - "type": Classify the entity into one of the valid types: "character", "location", "event", "plot", "object", or "other".
             - "keys": Generate an array of relevant keywords as objects, like this: {"keyText": "your keyword"}.
         6. Your final output must be ONLY the valid JSON object. Do not include markdown formatting like \`\`\`json or any other explanatory text.
@@ -69,7 +70,6 @@ export default async (request) => {
     const response = result.response;
     let jsonText = response.text();
 
-    // Clean the response to remove the markdown wrapper before saving
     jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
 
     await resultsStore.set(jobId, jsonText);

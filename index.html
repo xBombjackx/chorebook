@@ -168,11 +168,10 @@
             }
         });
 
-        // --- FULL POLLING FUNCTION RESTORED ---
         function pollForResult(jobId) {
             let attempts = 0;
-            const maxAttempts = 40; // Poll for 2 minutes (40 attempts * 3 seconds)
-            btnText.textContent = 'Generating... (checking for result)'; // Update UI text
+            const maxAttempts = 40;
+            btnText.textContent = 'Generating... (checking for result)';
 
             const intervalId = setInterval(async () => {
                 if (attempts >= maxAttempts) {
@@ -184,12 +183,10 @@
                 try {
                     const res = await fetch(`/.netlify/functions/get-result?id=${jobId}`);
 
-                    // A 200 status means the job is done and we have the result.
                     if (res.status === 200) {
                         clearInterval(intervalId);
                         const jsonText = await res.text();
 
-                        // Check if the result is an error object saved by the backend
                         try {
                             const potentialError = JSON.parse(jsonText);
                             if (potentialError.status === 'failed') {
@@ -197,7 +194,6 @@
                             }
                         } catch (e) { /* Not an error object, likely the real JSON */ }
 
-                        // If it wasn't an error, parse and display it
                         const parsedJson = JSON.parse(jsonText);
                         const formattedJson = JSON.stringify(parsedJson, null, 2);
                         outputJsonEl.textContent = formattedJson;
@@ -206,22 +202,21 @@
                         return;
                     }
 
-                    // A 404 status means the job is still pending, so we continue polling.
-                    // Any other status is an unexpected error.
-                    if (res.status !== 404) {
-                        throw new Error(`Polling received an unexpected status: ${res.status}`);
+                    if (res.status === 202) {
+                        attempts++;
+                        return;
                     }
 
-                    attempts++;
+                    throw new Error(`Polling received an unexpected status: ${res.status}`);
+
                 } catch (error) {
                     clearInterval(intervalId);
                     showError(`Polling failed: ${error.message}`);
                     setLoadingState(false);
                 }
-            }, 3000); // Poll every 3 seconds
+            }, 3000);
         }
 
-        // --- FULL COPY FUNCTION RESTORED ---
         copyBtn.addEventListener('click', () => {
             const textToCopy = outputJsonEl.textContent;
             const textArea = document.createElement('textarea');
