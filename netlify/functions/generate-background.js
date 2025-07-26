@@ -50,8 +50,7 @@ export default async (request) => {
         3. Read through all provided files and text. If a file is a JSON lorebook, treat its entries as existing data to be merged or updated with new information. For all other files (PDFs, text, etc.), extract distinct entities and create new entries.
         4. For each entity you identify, create one entry object in the "entries" array.
         5. For each entry object:
-            - "name": The proper name of the entity.
-            // MODIFIED INSTRUCTION FOR DESCRIPTION
+            - "name": The proper name of the entity.          
             - "description": A comprehensive and detailed summary of the entity. Extract all relevant information, context, and relationships from the source text to be as descriptive as possible, while strictly adhering to the 1600 character limit.
             - "type": Classify the entity into one of the valid types: "character", "location", "event", "plot", "object", or "other".
             - "keys": Generate an array of relevant keywords as objects, like this: {"keyText": "your keyword"}.
