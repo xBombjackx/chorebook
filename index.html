@@ -16,12 +16,9 @@
 
         .drop-zone-active {
             border-color: #2563eb;
-            /* blue-600 */
             background-color: #eff6ff;
-            /* blue-50 */
         }
 
-        /* Simple spinner animation */
         @keyframes spin {
             to {
                 transform: rotate(360deg);
@@ -39,7 +36,8 @@
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Lorebook JSON Generator</h1>
             <p class="mt-2 text-md text-gray-600">Generate a lorebook JSON file from your notes, character sheets, and
-                world-building documents.</p>
+                world-building documents. You can also add one or more lorebook JSON files to combine them with each
+                other and the new lore from your documents.</p>
         </header>
         <main class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-6">
             <div>
@@ -52,14 +50,14 @@
             <div>
                 <label for="text-input" class="block text-lg font-semibold text-gray-700 mb-2">2. Provide Your Lore
                     Data</label>
-                <p class="text-sm text-gray-500 mb-2">Paste your story text, character descriptions, location details,
-                    etc. below, or drop your text files (.txt, .md) onto the drop zone.</p>
+                <p class="text-sm text-gray-500 mb-2">Paste your story text below, or drop your text files (.txt, .md,
+                    .json) onto the drop zone.</p>
                 <textarea id="text-input" rows="8"
                     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                     placeholder="Paste your lore here..."></textarea>
                 <div id="drop-zone"
                     class="mt-4 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition">
-                    <input type="file" id="file-input" multiple class="hidden">
+                    <input type="file" id="file-input" multiple class="hidden" accept=".txt,.md,.json">
                     <div class="text-gray-500">
                         <svg class="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48"
                             aria-hidden="true">
@@ -69,7 +67,7 @@
                         </svg>
                         <p class="mt-2"><span class="font-semibold text-blue-600">Click to upload</span> or drag and
                             drop</p>
-                        <p class="text-xs text-gray-500">Any text-based files</p>
+                        <p class="text-xs text-gray-500">.txt, .md, and .json files</p>
                     </div>
                     <div id="file-list" class="mt-4 text-sm text-left"></div>
                 </div>
@@ -96,7 +94,6 @@
     </div>
 
     <script type="module">
-        // --- DOM Element References ---
         const lorebookNameEl = document.getElementById('lorebook-name');
         const textInputEl = document.getElementById('text-input');
         const dropZoneEl = document.getElementById('drop-zone');
@@ -109,127 +106,114 @@
         const outputJsonEl = document.getElementById('output-json');
         const copyBtn = document.getElementById('copy-btn');
         const errorMessageEl = document.getElementById('error-message');
-
         let uploadedFiles = [];
 
-        // --- File Handling Logic ---
         const handleFiles = (files) => {
             fileListEl.innerHTML = '<p class="font-semibold">Selected files:</p>';
             const filePromises = [];
-
             for (const file of files) {
                 const listItem = document.createElement('p');
                 listItem.textContent = `- ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
                 listItem.className = 'text-gray-600';
                 fileListEl.appendChild(listItem);
-
-                filePromises.push(
-                    new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => resolve({ name: file.name, content: e.target.result });
-                        reader.onerror = (e) => reject(e);
-                        reader.readAsText(file);
-                    })
-                );
+                filePromises.push(new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve({ name: file.name, content: e.target.result });
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsText(file);
+                }));
             }
-            Promise.all(filePromises).then(filesData => {
-                uploadedFiles = filesData;
-            }).catch(error => {
-                console.error("Error reading files:", error);
-                showError("There was an error reading one of the files. Please ensure they are valid text files.");
-            });
+            Promise.all(filePromises).then(filesData => { uploadedFiles = filesData; }).catch(error => { showError("There was an error reading one of the files."); });
         };
-
-        // Event Listeners for file handling
         dropZoneEl.addEventListener('click', () => fileInputEl.click());
         fileInputEl.addEventListener('change', () => handleFiles(fileInputEl.files));
         dropZoneEl.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); dropZoneEl.classList.add('drop-zone-active'); });
         dropZoneEl.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); dropZoneEl.classList.remove('drop-zone-active'); });
-        dropZoneEl.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZoneEl.classList.remove('drop-zone-active');
-            const files = e.dataTransfer.files;
-            if (files.length) {
-                fileInputEl.files = files;
-                handleFiles(files);
-            }
-        });
+        dropZoneEl.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); dropZoneEl.classList.remove('drop-zone-active'); const files = e.dataTransfer.files; if (files.length) { fileInputEl.files = files; handleFiles(files); } });
+        const setLoadingState = (isLoading) => { generateBtn.disabled = isLoading; btnText.textContent = isLoading ? 'Generating...' : 'Generate Lorebook JSON'; spinner.classList.toggle('hidden', !isLoading); };
+        const showError = (message) => { errorMessageEl.textContent = message; errorMessageEl.classList.remove('hidden'); };
+        const hideError = () => { errorMessageEl.classList.add('hidden'); };
 
-        // --- UI Helper Functions ---
-        const setLoadingState = (isLoading) => {
-            generateBtn.disabled = isLoading;
-            btnText.textContent = isLoading ? 'Generating...' : 'Generate Lorebook JSON';
-            spinner.classList.toggle('hidden', !isLoading);
-        };
-        const showError = (message) => {
-            errorMessageEl.textContent = message;
-            errorMessageEl.classList.remove('hidden');
-        };
-        const hideError = () => {
-            errorMessageEl.classList.add('hidden');
-        };
-
-        // --- Main Action ---
         generateBtn.addEventListener('click', async () => {
             hideError();
             setLoadingState(true);
             outputSection.classList.add('hidden');
-            copyBtn.classList.remove('hidden'); // Ensure copy button is visible for next run
-
+            copyBtn.classList.remove('hidden');
             const lorebookName = lorebookNameEl.value.trim();
-            const textInput = textInputEl.value.trim();
-
             if (!lorebookName) {
                 showError('Please provide a title for the lorebook.');
                 setLoadingState(false);
                 return;
             }
-
-            let combinedData = textInput;
+            let combinedData = textInputEl.value.trim();
             if (uploadedFiles.length > 0) {
-                const fileContents = uploadedFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
+                const fileContents = uploadedFiles.map(f => {
+                    let contentStr = '';
+                    if (f.name.toLowerCase().endsWith('.json')) {
+                        try {
+                            const jsonObj = JSON.parse(f.content);
+                            contentStr = JSON.stringify(jsonObj, null, 2);
+                        } catch (e) { contentStr = f.content; }
+                    } else { contentStr = f.content; }
+                    return `--- Uploaded File: ${f.name} ---\n${contentStr}`;
+                }).join('\n\n');
                 combinedData += `\n\n${fileContents}`;
             }
-
             if (!combinedData.trim()) {
-                showError('Please provide some lore data to process, either by pasting or uploading files.');
+                showError('Please provide some lore data to process.');
                 setLoadingState(false);
                 return;
             }
-
+            const jobId = crypto.randomUUID();
             try {
-                // Call the "-background" endpoint
-                const response = await fetch('/.netlify/functions/generate-background', {
+                const startResponse = await fetch('/.netlify/functions/generate-background', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        lorebookName: lorebookName,
-                        combinedData: combinedData
-                    })
+                    body: JSON.stringify({ lorebookName, combinedData, jobId })
                 });
-
-                // Check for a "202 Accepted" status code, which means the background function started successfully
-                if (response.status === 202) {
-                    hideError();
-                    outputSection.classList.remove('hidden');
-                    // Display a success message instead of the JSON output
-                    outputJsonEl.textContent = "Success! Your lorebook is being generated. This may take a minute. The result will be delivered via the method configured in your background function (e.g., email, database, etc.).";
-                    copyBtn.classList.add('hidden'); // Hide the copy button as there's nothing to copy
-                } else {
-                    // Handle any immediate errors from the server
-                    throw new Error(`Server returned an unexpected status: ${response.status}`);
-                }
-
+                if (startResponse.status !== 202) { throw new Error(`Server failed to start the job. Status: ${startResponse.status}`); }
+                pollForResult(jobId);
             } catch (error) {
-                console.error('Error:', error);
                 showError(`An error occurred: ${error.message}.`);
-            } finally {
                 setLoadingState(false);
             }
         });
 
-        // --- Copy to Clipboard Logic ---
+        function pollForResult(jobId) {
+            let attempts = 0;
+            const maxAttempts = 40;
+            const intervalId = setInterval(async () => {
+                if (attempts >= maxAttempts) {
+                    clearInterval(intervalId);
+                    showError("The request timed out waiting for a result. Please try again.");
+                    setLoadingState(false);
+                    return;
+                }
+                try {
+                    const res = await fetch(`/.netlify/functions/get-result?id=${jobId}`);
+                    if (res.status === 200) {
+                        clearInterval(intervalId);
+                        const jsonText = await res.text();
+                        try {
+                            const potentialError = JSON.parse(jsonText);
+                            if (potentialError.status === 'failed') { throw new Error(`Generation process failed: ${potentialError.error}`); }
+                        } catch (e) { /* Not an error object, likely the real JSON */ }
+                        const parsedJson = JSON.parse(jsonText);
+                        const formattedJson = JSON.stringify(parsedJson, null, 2);
+                        outputJsonEl.textContent = formattedJson;
+                        outputSection.classList.remove('hidden');
+                        setLoadingState(false);
+                        return;
+                    }
+                    attempts++;
+                } catch (error) {
+                    clearInterval(intervalId);
+                    showError(`Polling failed: ${error.message}`);
+                    setLoadingState(false);
+                }
+            }, 3000);
+        }
+
         copyBtn.addEventListener('click', () => {
             const textToCopy = outputJsonEl.textContent;
             const textArea = document.createElement('textarea');
@@ -241,7 +225,6 @@
                 copyBtn.textContent = 'Copied!';
                 setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
             } catch (err) {
-                console.error('Failed to copy text: ', err);
                 copyBtn.textContent = 'Failed!';
                 setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
             }

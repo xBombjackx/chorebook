@@ -1,7 +1,8 @@
 {
-    "name": "netlify-gemini-proxy",
+    "name": "netlify-lorebook-generator",
     "version": "1.0.0",
     "dependencies": {
-        "@google/generative-ai": "^0.14.1"
+        "@google/generative-ai": "^0.14.1",
+        "@netlify/blobs": "^8.0.0"
     }
 }
