@@ -66,7 +66,3 @@ export default async (request) => {
     }
   }
 };
-
-export const config = {
-  path: "/.netlify/functions/generate-background"
-};

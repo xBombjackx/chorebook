@@ -22,7 +22,3 @@ export default async (request) => {
         });
     }
 };
-
-export const config = {
-    path: "/.netlify/functions/get-result"
-};
