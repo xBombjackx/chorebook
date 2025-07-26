@@ -5,13 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lorebook JSON Generator</title>
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Custom Styles -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -60,7 +57,6 @@
                 <textarea id="text-input" rows="8"
                     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                     placeholder="Paste your lore here..."></textarea>
-                <!-- File Drop Zone -->
                 <div id="drop-zone"
                     class="mt-4 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition">
                     <input type="file" id="file-input" multiple class="hidden">
@@ -78,7 +74,6 @@
                     <div id="file-list" class="mt-4 text-sm text-left"></div>
                 </div>
             </div>
-            <!-- Action Button -->
             <div class="text-center pt-4">
                 <button id="generate-btn"
                     class="w-full md:w-auto bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center mx-auto">
@@ -88,7 +83,6 @@
                     </div>
                 </button>
             </div>
-            <!-- Output Section -->
             <div id="output-section" class="hidden">
                 <label class="block text-lg font-semibold text-gray-700 mb-2">3. Result</label>
                 <div class="relative bg-gray-900 p-4 rounded-lg">
@@ -97,11 +91,12 @@
                     <pre><code id="output-json" class="text-white text-sm whitespace-pre-wrap break-all"></code></pre>
                 </div>
             </div>
-            <!-- Error Message Area -->
             <div id="error-message" class="hidden p-4 bg-red-100 text-red-700 border border-red-200 rounded-lg"></div>
         </main>
     </div>
+
     <script type="module">
+        // --- DOM Element References ---
         const lorebookNameEl = document.getElementById('lorebook-name');
         const textInputEl = document.getElementById('text-input');
         const dropZoneEl = document.getElementById('drop-zone');
@@ -114,15 +109,20 @@
         const outputJsonEl = document.getElementById('output-json');
         const copyBtn = document.getElementById('copy-btn');
         const errorMessageEl = document.getElementById('error-message');
+
         let uploadedFiles = [];
+
+        // --- File Handling Logic ---
         const handleFiles = (files) => {
             fileListEl.innerHTML = '<p class="font-semibold">Selected files:</p>';
             const filePromises = [];
+
             for (const file of files) {
                 const listItem = document.createElement('p');
                 listItem.textContent = `- ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
                 listItem.className = 'text-gray-600';
                 fileListEl.appendChild(listItem);
+
                 filePromises.push(
                     new Promise((resolve, reject) => {
                         const reader = new FileReader();
@@ -139,6 +139,8 @@
                 showError("There was an error reading one of the files. Please ensure they are valid text files.");
             });
         };
+
+        // Event Listeners for file handling
         dropZoneEl.addEventListener('click', () => fileInputEl.click());
         fileInputEl.addEventListener('change', () => handleFiles(fileInputEl.files));
         dropZoneEl.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); dropZoneEl.classList.add('drop-zone-active'); });
@@ -153,6 +155,8 @@
                 handleFiles(files);
             }
         });
+
+        // --- UI Helper Functions ---
         const setLoadingState = (isLoading) => {
             generateBtn.disabled = isLoading;
             btnText.textContent = isLoading ? 'Generating...' : 'Generate Lorebook JSON';
@@ -165,10 +169,13 @@
         const hideError = () => {
             errorMessageEl.classList.add('hidden');
         };
+
+        // --- Main Action ---
         generateBtn.addEventListener('click', async () => {
             hideError();
             setLoadingState(true);
             outputSection.classList.add('hidden');
+            copyBtn.classList.remove('hidden'); // Ensure copy button is visible for next run
 
             const lorebookName = lorebookNameEl.value.trim();
             const textInput = textInputEl.value.trim();
@@ -192,7 +199,8 @@
             }
 
             try {
-                const response = await fetch('/.netlify/functions/generate', {
+                // Call the "-background" endpoint
+                const response = await fetch('/.netlify/functions/generate-background', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -200,34 +208,28 @@
                         combinedData: combinedData
                     })
                 });
-                if (!response.ok) {
-                    const contentType = response.headers.get("content-type");
-                    let errorText;
-                    if (contentType && contentType.indexOf("application/json") !== -1) {
-                        const errorBody = await response.json();
-                        errorText = errorBody.error || `Server Error: ${response.status}`;
-                    } else {
-                        errorText = `Server returned a non-JSON response. Status: ${response.status}. This could be a function timeout.`;
-                    }
-                    throw new Error(errorText);
+
+                // Check for a "202 Accepted" status code, which means the background function started successfully
+                if (response.status === 202) {
+                    hideError();
+                    outputSection.classList.remove('hidden');
+                    // Display a success message instead of the JSON output
+                    outputJsonEl.textContent = "Success! Your lorebook is being generated. This may take a minute. The result will be delivered via the method configured in your background function (e.g., email, database, etc.).";
+                    copyBtn.classList.add('hidden'); // Hide the copy button as there's nothing to copy
+                } else {
+                    // Handle any immediate errors from the server
+                    throw new Error(`Server returned an unexpected status: ${response.status}`);
                 }
-
-                const result = await response.json();
-                const jsonText = result.reply;
-
-                const parsedJson = JSON.parse(jsonText);
-                const formattedJson = JSON.stringify(parsedJson, null, 2);
-
-                outputJsonEl.textContent = formattedJson;
-                outputSection.classList.remove('hidden');
 
             } catch (error) {
                 console.error('Error:', error);
-                showError(`An error occurred: ${error.message}. Check the console for more details.`);
+                showError(`An error occurred: ${error.message}.`);
             } finally {
                 setLoadingState(false);
             }
         });
+
+        // --- Copy to Clipboard Logic ---
         copyBtn.addEventListener('click', () => {
             const textToCopy = outputJsonEl.textContent;
             const textArea = document.createElement('textarea');
