@@ -56,8 +56,8 @@ exports.handler = async function (event, context) {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(prompt);
         const response = result.response;
-        const jsonText = response.text();
-
+        let jsonText = response.text();
+        jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
         return {
             statusCode: 200,
             body: JSON.stringify({ reply: jsonText }),
