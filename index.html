@@ -47,10 +47,10 @@
                     placeholder="e.g., Chronicles of Eldoria">
             </div>
             <div>
-                <label for="text-input" class="block text-lg font-semibold text-gray-700 mb-2">2. Provide Additional
-                    Context or Instructions</label>
-                <p class="text-sm text-gray-500 mb-2">Paste any extra text here. Then, drop your files (.pdf, .docx,
-                    .txt, .json, etc.) onto the drop zone below.</p>
+                <label for="text-input" class="block text-lg font-semibold text-gray-700 mb-2">2. Provide Lore
+                    Data</label>
+                <p class="text-sm text-gray-500 mb-2">Paste your story text below, upload your files (.pdf, .docx, .txt,
+                    .json, etc.), or do both.</p>
                 <textarea id="text-input" rows="8"
                     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                     placeholder="Paste any additional text or instructions for the AI..."></textarea>
@@ -104,7 +104,6 @@
         const errorMessageEl = document.getElementById('error-message');
         let uploadedFiles = [];
 
-        // MODIFIED: This function now reads files as base64 data URLs
         const handleFiles = (files) => {
             fileListEl.innerHTML = '<p class="font-semibold">Selected files:</p>';
             const filePromises = [];
@@ -117,13 +116,12 @@
                     const reader = new FileReader();
                     reader.onload = (e) => resolve({ name: file.name, type: file.type, dataUrl: e.target.result });
                     reader.onerror = (e) => reject(e);
-                    reader.readAsDataURL(file); // Read as Data URL
+                    reader.readAsDataURL(file);
                 }));
             }
             Promise.all(filePromises).then(filesData => { uploadedFiles = filesData; }).catch(error => { showError("There was an error reading one of the files."); });
         };
 
-        // --- Other UI listeners and helpers (No changes) ---
         dropZoneEl.addEventListener('click', () => fileInputEl.click());
         fileInputEl.addEventListener('change', () => handleFiles(fileInputEl.files));
         dropZoneEl.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); dropZoneEl.classList.add('drop-zone-active'); });
@@ -133,7 +131,6 @@
         const showError = (message) => { errorMessageEl.textContent = message; errorMessageEl.classList.remove('hidden'); };
         const hideError = () => { errorMessageEl.classList.add('hidden'); };
 
-        // --- Main Action ---
         generateBtn.addEventListener('click', async () => {
             hideError();
             setLoadingState(true);
@@ -142,19 +139,23 @@
             const lorebookName = lorebookNameEl.value.trim();
             const additionalText = textInputEl.value.trim();
             if (!lorebookName) { showError('Please provide a title for the lorebook.'); setLoadingState(false); return; }
-            if (uploadedFiles.length === 0) { showError('Please upload at least one file to process.'); setLoadingState(false); return; }
+
+            if (!additionalText && uploadedFiles.length === 0) {
+                showError('Please provide some data by either pasting text or uploading files.');
+                setLoadingState(false);
+                return;
+            }
 
             const jobId = crypto.randomUUID();
 
             try {
-                // MODIFIED: The payload now sends an array of file objects
                 const startResponse = await fetch('/.netlify/functions/generate-background', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         lorebookName,
                         additionalText,
-                        files: uploadedFiles, // Send the array of file data
+                        files: uploadedFiles,
                         jobId
                     })
                 });
@@ -167,9 +168,77 @@
             }
         });
 
-        // --- Polling and Copy functions (No changes) ---
-        function pollForResult(jobId) { /* ... your existing polling code ... */ }
-        copyBtn.addEventListener('click', () => { /* ... your existing copy code ... */ });
+        // --- FULL POLLING FUNCTION RESTORED ---
+        function pollForResult(jobId) {
+            let attempts = 0;
+            const maxAttempts = 40; // Poll for 2 minutes (40 attempts * 3 seconds)
+            btnText.textContent = 'Generating... (checking for result)'; // Update UI text
+
+            const intervalId = setInterval(async () => {
+                if (attempts >= maxAttempts) {
+                    clearInterval(intervalId);
+                    showError("The request timed out waiting for a result. The task may have been too complex. Please try again with a smaller input.");
+                    setLoadingState(false);
+                    return;
+                }
+                try {
+                    const res = await fetch(`/.netlify/functions/get-result?id=${jobId}`);
+
+                    // A 200 status means the job is done and we have the result.
+                    if (res.status === 200) {
+                        clearInterval(intervalId);
+                        const jsonText = await res.text();
+
+                        // Check if the result is an error object saved by the backend
+                        try {
+                            const potentialError = JSON.parse(jsonText);
+                            if (potentialError.status === 'failed') {
+                                throw new Error(`Generation process failed: ${potentialError.error}`);
+                            }
+                        } catch (e) { /* Not an error object, likely the real JSON */ }
+
+                        // If it wasn't an error, parse and display it
+                        const parsedJson = JSON.parse(jsonText);
+                        const formattedJson = JSON.stringify(parsedJson, null, 2);
+                        outputJsonEl.textContent = formattedJson;
+                        outputSection.classList.remove('hidden');
+                        setLoadingState(false);
+                        return;
+                    }
+
+                    // A 404 status means the job is still pending, so we continue polling.
+                    // Any other status is an unexpected error.
+                    if (res.status !== 404) {
+                        throw new Error(`Polling received an unexpected status: ${res.status}`);
+                    }
+
+                    attempts++;
+                } catch (error) {
+                    clearInterval(intervalId);
+                    showError(`Polling failed: ${error.message}`);
+                    setLoadingState(false);
+                }
+            }, 3000); // Poll every 3 seconds
+        }
+
+        // --- FULL COPY FUNCTION RESTORED ---
+        copyBtn.addEventListener('click', () => {
+            const textToCopy = outputJsonEl.textContent;
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                copyBtn.textContent = 'Failed!';
+                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+            }
+            document.body.removeChild(textArea);
+        });
     </script>
 </body>
 
